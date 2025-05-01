@@ -8,12 +8,12 @@ p_favorable_no_survey = 0.5
 p_unfavorable_no_survey = 0.5
 
 # Вероятности с исследованием
-p_survey_positive = 0.6154  # Рассчитано по формуле полной вероятности
+p_survey_positive = 0.6154
 p_survey_negative = 0.3846
 p_favorable_positive = 0.9
 p_favorable_negative = 0.12
 
-# Расчет EMV для разных сценариев
+# Ожидаемая стоимостная ценность для каждого варианта
 def calculate_emv(prob_favorable, profit_favorable, loss_unfavorable):
     return prob_favorable * profit_favorable + (1 - prob_favorable) * loss_unfavorable
 

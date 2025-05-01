@@ -1,75 +1,83 @@
 import numpy as np
-from itertools import combinations
-from scipy.optimize import linear_sum_assignment
 
 # Исходные данные
-scientists = ['Адаме', 'Браун', 'Карр', 'Дай', 'Иване']
-data = [
-    [80, 120, 60, 104],    # Адаме
-    [72, 144, 48, 110],    # Браун
-    [96, 148, 72, 120],    # Карр
-    [60, 108, 52, 92],     # Дай
-    [64, 140, 60, 96]      # Иване
+supply = [200, 300, 100]  # Мощности поставщиков
+demand = [450, 250, 100, 100]  # Спрос потребителей
+costs = [
+    [6, 4, 4, 5],
+    [6, 9, 5, 8],
+    [8, 2, 10, 6]
 ]
 
-min_total = float('inf')
-best_assignments = []
-best_scientists = []
+# Добавляем фиктивного поставщика для балансировки
+total_supply = sum(supply)
+total_demand = sum(demand)
+if total_supply != total_demand:
+    supply.append(total_demand - total_supply)
+    costs.append([0] * len(demand))
 
-# Перебор комбинаций из 4 ученых
-for indices in combinations(range(5), 4):
-    submatrix = np.array([data[i] for i in indices])
-    row_ind, col_ind = linear_sum_assignment(submatrix)
-    total = submatrix[row_ind, col_ind].sum()
-    if total < min_total:
-        min_total = total
-        best_assignments = list(zip(row_ind, col_ind))
-        best_scientists = indices
 
-# Сбор всех оптимальных вариантов
-all_best = []
-for indices in combinations(range(5), 4):
-    submatrix = np.array([data[i] for i in indices])
-    row_ind, col_ind = linear_sum_assignment(submatrix)
-    total = submatrix[row_ind, col_ind].sum()
-    if total == min_total:
-        assignments = []
-        for sci_sub_idx, proj_idx in zip(row_ind, col_ind):
-            scientist_idx = indices[sci_sub_idx]
-            project_num = proj_idx + 1
-            assignments.append((scientists[scientist_idx], project_num, data[scientist_idx][proj_idx]))
-        all_best.append(assignments)
+# Метод северо-западного угла
+def northwest_corner(supply, demand):
+    alloc = np.zeros((len(supply), len(demand)), dtype=int)
+    i = j = 0
+    while i < len(supply) and j < len(demand):
+        quantity = min(supply[i], demand[j])
+        alloc[i][j] = quantity
+        supply[i] -= quantity
+        demand[j] -= quantity
+        if supply[i] == 0:
+            i += 1
+        else:
+            j += 1
+    return alloc
 
-# Проверка предпочтений
-reasonable = []
-for variant in all_best:
-    valid = True
-    for a in variant:
-        scientist, project, _ = a
-        if scientist in ['Браун', 'Карр', 'Дай'] and project not in [2, 3]:
-            valid = False
-        elif scientist in ['Адаме', 'Иване'] and project not in [1, 4]:
-            valid = False
-    if valid:
-        reasonable.append(variant)
 
-# Вывод результатов
-print("Минимальное общее время:", min_total)
-print("\nПример оптимального назначения:")
-for a in all_best[0]:
-    print(f"{a[0]} -> Проект {a[1]} ({a[2]} дней)")
+# Метод минимального элемента
+def minimal_cost(supply, demand, costs):
+    alloc = np.zeros((len(supply), len(demand)), dtype=int)
+    temp_costs = [row[:] for row in costs]
+    temp_supply = supply.copy()
+    temp_demand = demand.copy()
 
-if reasonable:
-    print("\nНаиболее разумный вариант с учетом предпочтений:")
-    for a in reasonable[0]:
-        print(f"{a[0]} -> Проект {a[1]}")
-else:
-    print("\nОптимальные варианты, частично соответствующие предпочтениям:")
-    for a in all_best[0]:
-        pref = ""
-        scientist, project, _ = a
-        if scientist in ['Браун', 'Карр', 'Дай'] and project in [2, 3]:
-            pref = "(соответствует предпочтению)"
-        elif scientist in ['Адаме', 'Иване'] and project in [1, 4]:
-            pref = "(соответствует предпочтению)"
-        print(f"{a[0]} -> Проект {a[1]} {pref}")
+    while max(temp_supply) > 0 and max(temp_demand) > 0:
+        # Находим минимальную стоимость
+        min_val = float('inf')
+        for i in range(len(temp_costs)):
+            for j in range(len(temp_costs[0])):
+                if temp_costs[i][j] < min_val and temp_supply[i] > 0 and temp_demand[j] > 0:
+                    min_val = temp_costs[i][j]
+                    min_i, min_j = i, j
+
+        # Распределяем ресурсы
+        quantity = min(temp_supply[min_i], temp_demand[min_j])
+        alloc[min_i][min_j] = quantity
+        temp_supply[min_i] -= quantity
+        temp_demand[min_j] -= quantity
+
+        # Убираем рассмотренную стоимость
+        temp_costs[min_i][min_j] = float('inf')
+
+    return alloc
+
+
+# Выполнение расчетов
+print("Метод северо-западного угла:")
+nw_result = northwest_corner(supply.copy(), demand.copy())
+print(nw_result)
+print("\nМетод минимального элемента:")
+mc_result = minimal_cost(supply.copy(), demand.copy(), costs)
+print(mc_result)
+
+
+# Расчет общей стоимости
+def calculate_total_cost(alloc, costs):
+    total = 0
+    for i in range(len(alloc)):
+        for j in range(len(alloc[0])):
+            total += alloc[i][j] * costs[i][j]
+    return total
+
+
+print("\nОбщая стоимость (северо-запад):", calculate_total_cost(nw_result, costs))
+print("Общая стоимость (минимальный элемент):", calculate_total_cost(mc_result, costs))
